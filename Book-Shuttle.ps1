@@ -4,7 +4,7 @@ param(
 )
 
 # ============================================================
-# MYLO1 DAILY T1 SHUTTLE BOOKING
+# MYLO1 DAILY SHUTTLE BOOKING
 # Windows PowerShell 5.1+
 # ============================================================
 
@@ -64,6 +64,16 @@ function Assert-IndiaTimeZone {
 function Set-MyLO1Automation {
 
     Assert-IndiaTimeZone
+
+    $TripName = (Read-Host "Shuttle name (for example, T1)").Trim()
+    if ([string]::IsNullOrWhiteSpace($TripName)) {
+        throw "Shuttle name cannot be empty."
+    }
+
+    $TripId = (Read-Host "Shuttle trip ID from MyLO1").Trim()
+    if ([string]::IsNullOrWhiteSpace($TripId)) {
+        throw "Shuttle trip ID cannot be empty."
+    }
 
     $FolderName = (Read-Host "Data folder name under C:\ [Mylo1]").Trim()
     if ([string]::IsNullOrWhiteSpace($FolderName)) {
@@ -152,6 +162,8 @@ function Set-MyLO1Automation {
         Version = 1
         TaskName = $TaskName
         TaskPath = "\"
+        TripId = $TripId
+        TripName = $TripName
         DataFolder = $Folder
         SecretsFile = $SecretFile
         LogFile = $LogFile
@@ -209,7 +221,7 @@ function Set-MyLO1Automation {
         -Trigger $Trigger `
         -Principal $Principal `
         -Settings $Settings `
-        -Description "Daily MyLO1 T1 shuttle booking at $TimeText IST." |
+        -Description "Daily MyLO1 $TripName shuttle booking at $TimeText IST." |
         Out-Null
 
     Write-Host "Encrypted credentials saved to $SecretFile"
@@ -462,9 +474,35 @@ function Get-BookingDate {
     return $IndiaTime.ToString("yyyy-MM-dd")
 }
 
+# ---------------- SHUTTLE CONFIGURATION ----------------
+
+function Set-ShuttleConfiguration {
+
+    if (!(Test-Path -LiteralPath $SetupManifest -PathType Leaf)) {
+        return
+    }
+
+    $Manifest = Get-Content -LiteralPath $SetupManifest -Raw | ConvertFrom-Json
+    $ConfiguredTripId = [string]$Manifest.TripId
+    $ConfiguredTripName = [string]$Manifest.TripName
+
+    if ([string]::IsNullOrWhiteSpace($ConfiguredTripId) -and
+        [string]::IsNullOrWhiteSpace($ConfiguredTripName)) {
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ConfiguredTripId) -or
+        [string]::IsNullOrWhiteSpace($ConfiguredTripName)) {
+        throw "Setup manifest has incomplete shuttle configuration. Run setup again."
+    }
+
+    $script:TripId = $ConfiguredTripId
+    $script:TripName = $ConfiguredTripName
+}
+
 # ---------------- CHECK SERVER BOOKING STATUS ----------------
 
-function Test-ExistingT1Booking {
+function Test-ExistingShuttleBooking {
 
     param(
         [string]$Token,
@@ -544,7 +582,7 @@ function Test-ExistingT1Booking {
 
                 if ($Pass.ticket_visible -eq $true) {
 
-                    Write-Log "Active T1 booking already exists."
+                    Write-Log "Active $TripName booking already exists."
                     Write-Log "Skipping duplicate booking."
 
                     return $true
@@ -552,11 +590,11 @@ function Test-ExistingT1Booking {
 
                 # Do not risk another booking if the server
                 # reports a matching ride but ticket is hidden.
-                throw "Matching T1 ride exists but ticket_visible is not true. Verify booking status manually."
+                throw "Matching $TripName ride exists but ticket_visible is not true. Verify booking status manually."
             }
         }
 
-        Write-Log "No active T1 booking found for $BookingDate."
+        Write-Log "No active $TripName booking found for $BookingDate."
 
         return $false
     }
@@ -566,14 +604,14 @@ function Test-ExistingT1Booking {
 
 # ---------------- BOOK TICKET ----------------
 
-function Invoke-T1Booking {
+function Invoke-ShuttleBooking {
 
     param(
         [string]$Token,
         [string]$BookingDate
     )
 
-    Write-Log "Sending T1 booking request..."
+    Write-Log "Sending $TripName booking request..."
 
     $Result = Invoke-MyLO1Post `
         -Url "$BaseUrl/pass_manager/v1/book_pass" `
@@ -609,6 +647,7 @@ if ($Setup) {
 try {
 
     Assert-IndiaTimeZone
+    Set-ShuttleConfiguration
 
     if (!(Test-Path $Folder)) {
 
@@ -633,7 +672,7 @@ try {
     $Token = Get-AuthToken -Credentials $Credentials
 
     # Step 3: Avoid creating a duplicate active booking.
-    $AlreadyBooked = Test-ExistingT1Booking `
+    $AlreadyBooked = Test-ExistingShuttleBooking `
         -Token $Token `
         -BookingDate $BookingDate
 
@@ -652,7 +691,7 @@ try {
     }
 
     # Step 5: Book ticket.
-    Invoke-T1Booking `
+    Invoke-ShuttleBooking `
         -Token $Token `
         -BookingDate $BookingDate
 

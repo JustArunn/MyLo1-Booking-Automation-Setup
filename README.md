@@ -1,6 +1,6 @@
 # MyLO1 Booking Automation
 
-A Windows PowerShell script that schedules a daily MyLO1 T1 shuttle booking. Setup stores credentials encrypted for the current Windows user and creates a Windows Scheduled Task.
+A Windows PowerShell script that schedules a daily MyLO1 shuttle booking. Setup stores credentials encrypted for the current Windows user and creates a Windows Scheduled Task.
 
 ## Requirements
 
@@ -18,14 +18,16 @@ Keep `Book-Shuttle.ps1` and `Cleanup-Mylo.ps1` together. Open PowerShell in thei
 
 Setup prompts for:
 
-1. A data folder name under `C:\` (press Enter for `C:\Mylo1`)
-2. The daily booking time in 24-hour `HH:mm` format (IST)
-3. A Scheduled Task name (press Enter for `mylo`)
-4. Your mobile number and MFA code (entered as secure, hidden input)
+1. The shuttle name (for example, `T1`)
+2. The shuttle trip ID used by MyLO1
+3. A data folder name under `C:\` (press Enter for `C:\Mylo1`)
+4. The daily booking time in 24-hour `HH:mm` format (IST)
+5. A Scheduled Task name (press Enter for `mylo`)
+6. Your mobile number and MFA code (entered as secure, hidden input)
 
-Setup creates the selected data folder if needed, then saves the encrypted credentials in `secrets.json` and creates `booking.log`. It also creates `mylo-setup.json` beside the scripts so cleanup can identify the files and task associated with this setup.
+Use the shuttle name and trip ID that correspond to your MyLO1 shuttle; the trip ID is sent with the booking request. Setup creates the selected data folder if needed, then saves the encrypted credentials in `secrets.json` and creates `booking.log`. It also creates `mylo-setup.json` beside the scripts with the shuttle configuration so scheduled runs book the selected shuttle and cleanup can identify the files and task associated with this setup.
 
-The scheduled task runs as your current Windows user while that user is signed in. It starts at the next occurrence of the chosen time and repeats daily. The booking script uses the configured T1 trip and checks for an existing booking before attempting to book.
+The scheduled task runs as your current Windows user while that user is signed in. It starts at the next occurrence of the chosen time and repeats daily. The booking script uses the configured shuttle and checks for an existing booking for that shuttle before attempting to book.
 
 > **MFA note:** The script stores and reuses the MFA value supplied during setup. If MyLO1 requires a fresh, time-limited one-time code for each login, scheduled authentication may fail. Confirm that the account's MFA flow supports the value and login method this automation uses.
 
